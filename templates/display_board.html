@@ -1,0 +1,178 @@
+<!doctype html>
+<html>
+
+<head>
+    <title></title>
+    <script src="https://www.gstatic.com/firebasejs/ui/4.4.0/firebase-ui-auth.js"></script>
+    <link type="text/css" rel="stylesheet" href="https://www.gstatic.com/firebasejs/ui/4.4.0/firebase-ui-auth.css" />
+    <script src="{{ url_for('static', filename='scripts.js') }}"></script>
+    <link type="text/css" rel="stylesheet" href="{{ url_for('static',filename='style.css') }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+    <!-- JavaScript Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
+</head>
+
+<body>
+    <h1></h1>
+    <div id="firebase-auth-container"></div>
+    <a href="/"><button class="btn btn-warning" id="sign-out" hidden="true">Sign out</button></a>
+    <div id="login-info" hidden="true">
+		{% if session['email'] %}
+			<table class="table table-bordered">
+				<tr>
+					<th>Name: </th>
+					<td>{{ session['name'] }}</td>
+					<th>Email</th>
+					<td>{{ session['email'] }}</td>
+				</tr>
+                <tr class="table-success">
+                    <form action="/add_task" method="post">
+                        <th>Task title:</th>
+                        <td><input type="text" class="form-control" name="title" placeholder="Task Title"> </td>
+                        <th>Due Date: </th>
+                        <td><input type="datetime-local" class="form-control" name="due_date_time"></td>
+                        <input type="hidden" name="board_key" value="{{board.key.id}}">
+                        <td><input type="submit" class="btn btn-success form-control" value="Add Task"></td>
+                    </form>
+                </tr>
+			</table>
+            <hr>
+            <table class="table table-bordered" >
+                <tr><td><h3>Board Name</h3></td><td colspan="2"><h3>{{board['title']}}</h3></td></tr>
+                <tr class="table-warning"><td colspan="3">{{msg}}</td></tr>
+                <tr>
+                    <td>Tasks</td>
+                    <td>Users on Board</td>
+                    <td>Users not on Board</td>
+                </tr>
+                <tr>
+                    <td><!-- for tasks on baord -->
+                        <table class="table table-bordered">
+                            <tr>
+                                <th>Sr#</th>
+                                <th>Title</th>
+                                <th>Due Date</th>
+                                <th>Edit</th>
+                                <th>Assigned</th>
+                                <th>Complete Date</th>
+                                <th>Delete Task</th>
+                            </tr>
+                            {% for task in tasks %}
+                                <tr {% if task['red_color'] %} class="table-danger" {% endif %}>
+                                    <td>{{loop.index}}</td>
+                                    <form action="/edit_task" method="post">
+                                        <input type="hidden" name="board_key" value="{{board.key.id}}">
+                                        <input type="hidden" name="task_key" value="{{task.key.id}}">
+                                        <td><input type="text" name="title" placeholder="Task title" value="{{task['title']}}"></td>
+                                        <td><input type="datetime-local" name="due_date_time" value="{{task['due_date']}}T{{task['due_time']}}"></td>
+                                        <td><input type="submit" class="btn btn-success form-control" value="Edit"></td>
+                                    </form>
+                                    
+                                    {% if task['is_assigned'] %}
+                                        <td>{{task['assigned_to']}}</td>
+                                    {% else %}
+                                        <td>
+                                            <form action="/assign_task" method="post">
+                                                <input type="hidden" name="board_key" value="{{board.key.id}}">
+                                                <input type="hidden" name="task_key" value="{{task.key.id}}">
+                                                <select name="assigned_to">
+                                                    <option>{{board['created_by']}}</option>
+                                                    {%  for user in board['users_email_list'] %}
+                                                        <option>{{user}}</option>
+                                                    {% endfor %}
+                                                </select>
+                                                <input type="submit" class="btn btn-success" value="Assign">
+                                            </form>
+                                        </td>
+                                    {% endif %}
+                                    {% if task['complete_time'] %}
+                                        <td>{{task['complete_time']}} {{task['complete_date']}}</td>
+                                    {% elif task['assigned_to']==session['email'] %}
+                                        <td>
+                                            <form action="/mark_completed" method="post">
+                                                <input type="hidden" name="board_key" value="{{board.key.id}}">
+                                                <input type="hidden" name="task_key" value="{{task.key.id}}">
+                                                <input type="submit" class="btn btn-success" value="Complete">
+                                            </form>
+                                        </td>
+                                    {% elif not task['assigned_to'] %}
+                                        <td>Not Assigned</td>
+                                    {% else %}
+                                        <td>Not Completed</td>
+                                    {% endif %}
+                                    <td>
+                                        <form action="/delete_task" method="post">
+                                            <input type="hidden" name="board_key" value="{{board.key.id}}">
+                                            <input type="hidden" name="task_key" value="{{task.key.id}}">
+                                            <input type="submit" class="btn btn-warning" value="Del">
+                                        </form>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </table>
+                    </td>
+                    <td><!-- for users on board -->
+                        <table class="table table-bordered">
+                            <tr>
+                                <th>Sr#</th>
+                                <th>Email</th>
+                                {% if board['created_by']==session['email'] %}
+                                <th>Remove</th>
+                                {% endif %}
+                            </tr>
+                            {% for user in board['users_email_list'] %}
+                            <tr>
+                                <td>{{loop.index}}</td>
+                                <td>{{user}}</td>
+                                {% if board['created_by']==session['email'] %}
+                                <td>
+                                    <form action="/remove_user" method="post">
+                                        <input type="hidden" name="board" value="{{board.key.id}}">
+                                        <input type="hidden" name="email" value="{{user}}">
+                                        <input type="submit" class="btn btn-warning" value="Del">
+                                    </form>
+                                </td>
+                                {% endif %}
+                            </tr>
+                            {% endfor %}
+                        </table>
+                    </td>
+                    <td><!-- for other users-->
+                        <table class="table table-bordered">
+                            <tr>
+                                <th>Sr#</th>
+                                <th>Email</th>
+                                {% if board['created_by']==session['email'] %}
+                                <th>Invite</th>
+                                {% endif %}
+                            </tr>
+                            {% for user in users %}
+                                <tr>
+                                    <td>{{loop.index}}</td>
+                                    <td>{{user['email']}}</td>
+                                    {% if board['created_by']==session['email'] %}
+                                    <td>
+                                        <form action="/invite_user" method="post">
+                                            <input type="hidden" name="board" value="{{board.key.id}}">
+                                            <input type="hidden" name="email" value="{{user['email']}}">
+                                            <input type="submit" class="btn btn-success" value="Invite">
+                                        </form>
+                                    </td>
+                                    {% endif %}
+                                </tr>
+                            {% endfor %}
+                        </table>
+                    </td>
+                </tr>
+            </table>
+		{% elif error_message %}
+		<p>Error Message: {{ error_message }}</p>
+		{% endif %}
+    </div>
+</body>
+
+<script src="https://www.gstatic.com/firebasejs/7.14.5/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/7.8.0/firebase-auth.js"></script>
+<script src="{{ url_for('static', filename='app-setup.js') }}"></script>
+
+</html>
